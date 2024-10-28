@@ -70,10 +70,6 @@
             <select id="speciesDropdown"></select>
         </div>
         <div class="filter">
-            <label for="strainDropdown">Strain:</label>
-            <select id="strainDropdown"></select>
-        </div>
-        <div class="filter">
             <label for="genderDropdown">Gender:</label>
             <select id="genderDropdown"></select>
         </div>
@@ -144,7 +140,7 @@
             const genderDropdown = d3.select("#genderDropdown");
 
             // Add "All" option
-            [speciesDropdown, strainDropdown, genderDropdown].forEach(dropdown => {
+            [speciesDropdown, genderDropdown].forEach(dropdown => {
                 dropdown.append("option").text("All").attr("value", "All");
             });
 
@@ -243,7 +239,6 @@
             // Update display function for filters
             function updateDisplay() {
                 const selectedSpecies = speciesDropdown.property("value");
-                const selectedStrain = strainDropdown.property("value");
                 const selectedGender = genderDropdown.property("value");
 
                 const filteredData = data.filter(d =>
@@ -275,7 +270,6 @@
 
             // Event listeners for filters
             speciesDropdown.on("change", updateDisplay);
-            strainDropdown.on("change", updateDisplay);
             genderDropdown.on("change", updateDisplay);
 
             // Initial display
