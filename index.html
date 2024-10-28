@@ -96,12 +96,19 @@
 
     <!-- Charts -->
     <div id="charts-container">
+        <div id="chart-median-effect-size" style="width: 100%; max-width: 1200px;">
+            <h3>Interventions with >= 5% Median Lifespan Effect Size</h3>
+        </div>
+        <div id="chart-max-effect-size" style="width: 100%; max-width: 1200px;">
+            <h3>Interventions with >= 5% Max Lifespan Effect Size</h3>
+        </div>
+        
         <div id="chart-median">
-            <h3>Median Lifespan (%)</h3>
-        </div>
+            <h3>All Interventions - Median Lifespan (%)</h3>
+</div>
         <div id="chart-max">
-            <h3>Max Lifespan (%)</h3>
-        </div>
+            <h3>All Interventions - Max Lifespan (%)</h3>
+</div>
     </div>
 
     <!-- Data Table -->
@@ -178,7 +185,7 @@
             const tooltip = d3.select("#tooltip");
 
             // Function to render charts
-            function renderChart(containerId, lifespanType) {
+            function renderChart(containerId, lifespanType, showXAxis = false) {
                 const width = Math.min(1200, window.innerWidth * 0.9), height = 400, margin = {top: 20, right: 30, bottom: 40, left: 50};
                 const svg = d3.select(`#${containerId}`).append("svg")
                     .attr("width", width)
@@ -189,8 +196,28 @@
 
                 
                 svg.append("g").attr("class", "y-axis").attr("transform", `translate(${margin.left},0)`);
+                svg.append("text")
+                    .attr("class", "y-axis-label")
+                    .attr("transform", `rotate(-90)`)
+                    .attr("x", -height / 2)
+                    .attr("y", margin.left / 2 - 10)
+                    .style("text-anchor", "middle")
+                    .style("font-size", "12px")
+                    .text(lifespanType);
 
                 function updateChart(filteredData) {
+                    if (showXAxis) {
+                        svg.append("g")
+                            .attr("class", "x-axis")
+                            .attr("transform", `translate(0,${height - margin.bottom})`)
+                            .call(d3.axisBottom(x).tickFormat(d => {
+                                const intervention = data.find(entry => entry.id === d);
+                                return `${intervention.Name} (${intervention.Gender})`;
+                            }))
+                            .selectAll("text")
+                            .style("text-anchor", "end")
+                            .attr("transform", "rotate(-45)");
+                    }
                     // Sort the data based on the lifespan type in descending order
                     filteredData.sort((a, b) => b[lifespanType] - a[lifespanType]);
 
@@ -249,7 +276,10 @@
                 return updateChart;
             }
 
-            // Initialize the two charts
+            // Initialize the five charts
+            const updateMedianEffectSizeChart = renderChart("chart-median-effect-size", "Median Lifespan (%)", true);
+            const updateMaxEffectSizeChart = renderChart("chart-max-effect-size", "Max Lifespan (%)", true);
+            
             const updateMedianChart = renderChart("chart-median", "Median Lifespan (%)");
             const updateMaxChart = renderChart("chart-max", "Max Lifespan (%)");
 
@@ -263,7 +293,12 @@
                     (selectedGender === "All" || d.Gender === selectedGender)
                 );
 
-                // Update both charts with the filtered data
+                // Update all charts with the filtered data
+                const filteredMedianEffectSizeData = filteredData.filter(d => d["Median Lifespan (%)"] >= 5);
+                const filteredMaxEffectSizeData = filteredData.filter(d => d["Max Lifespan (%)"] >= 5);
+                updateMedianEffectSizeChart(filteredMedianEffectSizeData);
+                updateMaxEffectSizeChart(filteredMaxEffectSizeData);
+                
                 updateMedianChart(filteredData);
                 updateMaxChart(filteredData);
 
