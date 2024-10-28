@@ -71,7 +71,12 @@
             }
         }
     </style>
-    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js">document.addEventListener('click', function(event) {
+            if (!event.target.closest('.bar') && !event.target.closest('.tooltip')) {
+                d3.select('#tooltip').style('visibility', 'hidden');
+            }
+        });
+    </script>
 </head>
 <body>
 
