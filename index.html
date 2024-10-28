@@ -197,7 +197,7 @@
             const tooltip = d3.select("#tooltip");
 
             // Function to render charts
-            function renderChart(containerId, lifespanType, showXAxis = false) {
+            function renderChart(containerId, lifespanType) {
                 const width = Math.min(1200, window.innerWidth * 0.9), height = 400, margin = {top: 20, right: 30, bottom: 40, left: 50};
                 const svg = d3.select(`#${containerId}`).append("svg")
                     .attr("width", width)
@@ -218,18 +218,6 @@
                     .text(lifespanType);
 
                 function updateChart(filteredData) {
-                    if (showXAxis) {
-                        svg.append("g")
-                            .attr("class", "x-axis")
-                            .attr("transform", `translate(0,${height - margin.bottom})`)
-                            .call(d3.axisBottom(x).tickFormat(d => {
-                                const intervention = data.find(entry => entry.id === d);
-                                return `${intervention.Name} (${intervention.Gender})`;
-                            }))
-                            .selectAll("text")
-                            .style("text-anchor", "end")
-                            .attr("transform", "rotate(-45)");
-                    }
                     // Sort the data based on the lifespan type in descending order
                     filteredData.sort((a, b) => b[lifespanType] - a[lifespanType]);
 
