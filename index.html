@@ -115,7 +115,7 @@
 
     <script>
         // Load data and initialize
-        d3.csv("rll_database.csv").then(data => {
+        d3.csv("./rll_database.csv").then(data => {
             // Convert lifespan data to numeric and create a unique ID for each intervention
             data.forEach((d, i) => {
                 d["Median Lifespan (%)"] = +d["Median Lifespan (%)"];
