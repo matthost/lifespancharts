@@ -278,7 +278,7 @@
                         .attr("x", d => x(d.id) + x.bandwidth() / 2)
                         .attr("y", d => y(Math.max(0, d[lifespanType])) - 5)
                         .attr("transform", d => `rotate(-45, ${x(d.id) + x.bandwidth() / 2}, ${y(Math.max(0, d[lifespanType])) - 5})`)
-                        .attr("text-anchor", "end")
+                        .attr("text-anchor", "start")
                         .attr("fill", "#e0e0e0")
                         .attr("font-size", "10px")
                         .text(d => d.Name)
