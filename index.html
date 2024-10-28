@@ -123,8 +123,9 @@
         </div>
     </div>
 
-    <!-- Data Table -->
-    <div id="table-container">
+<button id="toggleTableButton">Show Data Table</button>
+<!-- Data Table -->
+    <div id="table-container" style="display: none;">
         <table id="dataTable">
             <thead>
                 <tr>
@@ -214,8 +215,7 @@
                     .attr("y", margin.left / 2 - 10)
                     .style("text-anchor", "middle")
                     .style("font-size", "12px")
-                    .attr("fill", "#e0e0e0")
-                    .text(`Increase in ${lifespanType}`);
+                    .text(`% Lifespan Increase (${lifespanType})`);
 
                 function updateChart(filteredData) {
                     // Sort the data based on the lifespan type in descending order
@@ -345,6 +345,16 @@
 
             // Initial display
             updateDisplay();
+        });
+    document.getElementById('toggleTableButton').addEventListener('click', function() {
+            const tableContainer = document.getElementById('table-container');
+            if (tableContainer.style.display === 'none') {
+                tableContainer.style.display = 'block';
+                this.textContent = 'Hide Data Table';
+            } else {
+                tableContainer.style.display = 'none';
+                this.textContent = 'Show Data Table';
+            }
         });
     </script>
 </body>
