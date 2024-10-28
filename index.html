@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Species Lifespan Interventions</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        #charts-container, #table-container {
+            display: flex;
+            justify-content: center;
+            flex-direction: column;
+            align-items: center;
+            width: 90%;
+            margin-top: 20px;
+        }
+        .filter-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px;
+        }
+        .filter {
+            margin-bottom: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        tr.highlight {
+            background-color: #ffeb99; /* Light yellow background for highlight */
+        }
+        .axis-label {
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .tooltip {
+            position: absolute;
+            background-color: white;
+            border: 1px solid #ccc;
+            padding: 10px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            pointer-events: none;
+            visibility: hidden;
+            z-index: 10;
+        }
+    </style>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+
+    <h1>Species Lifespan Interventions</h1>
+
+    <!-- Filter dropdowns for all columns -->
+    <div class="filter-container">
+        <div class="filter">
+            <label for="speciesDropdown">Species:</label>
+            <select id="speciesDropdown"></select>
+        </div>
+        <div class="filter">
+            <label for="strainDropdown">Strain:</label>
+            <select id="strainDropdown"></select>
+        </div>
+        <div class="filter">
+            <label for="genderDropdown">Gender:</label>
+            <select id="genderDropdown"></select>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div id="charts-container">
+        <div id="chart-median">
+            <h3>Median Lifespan (%)</h3>
+        </div>
+        <div id="chart-max">
+            <h3>Max Lifespan (%)</h3>
+        </div>
+    </div>
+
+    <!-- Data Table -->
+    <div id="table-container">
+        <table id="dataTable">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Dosage</th>
+                    <th>Treatment</th>
+                    <th>Species</th>
+                    <th>Strain</th>
+                    <th>Gender</th>
+                    <th>Median Lifespan (%)</th>
+                    <th>Max Lifespan (%)</th>
+                    <th>Tags</th>
+                    <th>Study</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- Tooltip -->
+    <div class="tooltip" id="tooltip"></div>
+
+    <script>
+        // Load data and initialize
+        d3.csv("rll_database.csv").then(data => {
+            // Convert lifespan data to numeric and create a unique ID for each intervention
+            data.forEach((d, i) => {
+                d["Median Lifespan (%)"] = +d["Median Lifespan (%)"];
+                d["Max Lifespan (%)"] = +d["Max Lifespan (%)"];
+                d.id = `${d.Name}-${d.Dosage}-${d.Strain}-${i}`; // Unique identifier
+            });
+
+            // Species mapping with common names
+            const speciesCommonNames = {
+                "Mus musculus": "Mus musculus (mice)",
+                "Caenorhabditis elegans": "Caenorhabditis elegans (nematode)",
+                "Caenorhabditis briggsae": "Caenorhabditis briggsae (nematode)",
+                "Caenorhabditis tropicalis": "Caenorhabditis tropicalis (nematode)",
+                "Drosophila melanogaster": "Drosophila melanogaster (fruit fly)",
+                "Rattus norvegicus": "Rattus norvegicus (rat)",
+                "Homo sapiens": "Homo sapiens (human)"
+            };
+
+            // Unique values for dropdown filters
+            const speciesList = [...new Set(data.map(d => d.Species))];
+            const strainList = [...new Set(data.map(d => d.Strain))];
+            const genderList = [...new Set(data.map(d => d.Gender))];
+
+            // Populate dropdowns
+            const speciesDropdown = d3.select("#speciesDropdown");
+            const strainDropdown = d3.select("#strainDropdown");
+            const genderDropdown = d3.select("#genderDropdown");
+
+            // Add "All" option
+            [speciesDropdown, strainDropdown, genderDropdown].forEach(dropdown => {
+                dropdown.append("option").text("All").attr("value", "All");
+            });
+
+            // Populate species dropdown with common names
+            speciesList.forEach(species => {
+                const label = speciesCommonNames[species] || species; // Use common name if available
+                speciesDropdown.append("option").text(label).attr("value", species);
+            });
+
+            strainList.forEach(strain => strainDropdown.append("option").text(strain).attr("value", strain));
+            genderList.forEach(gender => genderDropdown.append("option").text(gender).attr("value", gender));
+
+            // Set default value to "Mus musculus"
+            speciesDropdown.property("value", "Mus musculus");
+
+            // Tooltip setup
+            const tooltip = d3.select("#tooltip");
+
+            // Function to render charts
+            function renderChart(containerId, lifespanType) {
+                const width = 800, height = 400, margin = {top: 20, right: 30, bottom: 40, left: 50};
+                const svg = d3.select(`#${containerId}`).append("svg")
+                    .attr("width", width)
+                    .attr("height", height);
+
+                const x = d3.scaleBand().range([margin.left, width - margin.right]);
+                const y = d3.scaleLinear().range([height - margin.bottom, margin.top]);
+
+                svg.append("g").attr("class", "x-axis").attr("transform", `translate(0,${height - margin.bottom})`);
+                svg.append("g").attr("class", "y-axis").attr("transform", `translate(${margin.left},0)`);
+
+                function updateChart(filteredData) {
+                    // Sort the data based on the lifespan type in descending order
+                    filteredData.sort((a, b) => b[lifespanType] - a[lifespanType]);
+
+                    // Adjust padding to make bars touch each other
+                    x.domain(filteredData.map(d => d.id)).padding(filteredData.length > 1 ? 0.05 : 0);
+
+                    // Determine the minimum value to handle negative values
+                    const minValue = d3.min(filteredData, d => d[lifespanType]);
+                    y.domain([Math.min(0, minValue), d3.max(filteredData, d => d[lifespanType])]);
+
+                    svg.select(".x-axis").transition().call(d3.axisBottom(x)).selectAll("text").attr("dy", ".35em")
+                        .style("text-anchor", "end").attr("transform", "rotate(-45)");
+
+                    svg.select(".y-axis").transition().call(d3.axisLeft(y));
+
+                    const bars = svg.selectAll(".bar").data(filteredData, d => d.id);
+
+                    bars.enter().append("rect")
+                        .attr("class", "bar")
+                        .attr("x", d => x(d.id))
+                        .attr("y", d => y(Math.max(0, d[lifespanType]))) // Adjust y to handle negative values
+                        .attr("height", d => Math.abs(y(0) - y(d[lifespanType]))) // Calculate height for negative values
+                        .attr("width", x.bandwidth())
+                        .attr("fill", "steelblue")
+                        .on("mouseover", function(event, d) {
+                            d3.select(this).attr("fill", "darkorange");
+
+                            tooltip.style("visibility", "visible")
+                                .html(`<strong>Name:</strong> ${d.Name}<br>
+                                       <strong>Dosage:</strong> ${d.Dosage}<br>
+                                       <strong>Treatment:</strong> ${d.Treatment}<br>
+                                       <strong>Species:</strong> ${d.Species}<br>
+                                       <strong>Strain:</strong> ${d.Strain}<br>
+                                       <strong>Gender:</strong> ${d.Gender}<br>
+                                       <strong>${lifespanType}:</strong> ${d[lifespanType]}<br>
+                                       <strong>Tags:</strong> ${d.Tags}<br>
+                                       <strong>Study:</strong> ${d.Study}`);
+                        })
+                        .on("mousemove", function(event) {
+                            tooltip.style("top", (event.pageY + 10) + "px")
+                                   .style("left", (event.pageX + 10) + "px");
+                        })
+                        .on("mouseout", function() {
+                            d3.select(this).attr("fill", "steelblue");
+                            tooltip.style("visibility", "hidden");
+                        })
+                        .merge(bars)
+                        .transition()
+                        .attr("x", d => x(d.id))
+                        .attr("y", d => y(Math.max(0, d[lifespanType])))
+                        .attr("height", d => Math.abs(y(0) - y(d[lifespanType])))
+                        .attr("width", x.bandwidth());
+
+                    bars.exit().remove();
+                }
+
+                return updateChart;
+            }
+
+            // Initialize the two charts
+            const updateMedianChart = renderChart("chart-median", "Median Lifespan (%)");
+            const updateMaxChart = renderChart("chart-max", "Max Lifespan (%)");
+
+            // Update display function for filters
+            function updateDisplay() {
+                const selectedSpecies = speciesDropdown.property("value");
+                const selectedStrain = strainDropdown.property("value");
+                const selectedGender = genderDropdown.property("value");
+
+                const filteredData = data.filter(d =>
+                    (selectedSpecies === "All" || d.Species === selectedSpecies) &&
+                    (selectedStrain === "All" || d.Strain === selectedStrain) &&
+                    (selectedGender === "All" || d.Gender === selectedGender)
+                );
+
+                // Update both charts with the filtered data
+                updateMedianChart(filteredData);
+                updateMaxChart(filteredData);
+
+                // Update table
+                const tbody = d3.select("#dataTable tbody");
+                tbody.selectAll("tr").remove();
+
+                filteredData.forEach(d => {
+                    const row = tbody.append("tr");
+                    Object.values(d).forEach(value => row.append("td").text(value));
+
+                    // Add mouseover and mouseout events to highlight the row
+                    row.on("mouseover", function() {
+                        d3.select(this).classed("highlight", true);
+                    }).on("mouseout", function() {
+                        d3.select(this).classed("highlight", false);
+                    });
+                });
+            }
+
+            // Event listeners for filters
+            speciesDropdown.on("change", updateDisplay);
+            strainDropdown.on("change", updateDisplay);
+            genderDropdown.on("change", updateDisplay);
+
+            // Initial display
+            updateDisplay();
+        });
+    </script>
+</body>
+</html>
