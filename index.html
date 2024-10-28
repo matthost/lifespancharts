@@ -117,10 +117,10 @@
         
         <div id="chart-median">
             <h3>All Interventions - Median Lifespan (%)</h3>
-</div>
+        </div>
         <div id="chart-max">
             <h3>All Interventions - Max Lifespan (%)</h3>
-</div>
+        </div>
     </div>
 
     <!-- Data Table -->
@@ -198,7 +198,7 @@
 
             // Function to render charts
             function renderChart(containerId, lifespanType) {
-                const width = Math.min(1200, window.innerWidth * 0.9), height = 400, margin = {top: 20, right: 30, bottom: 40, left: 50};
+                const width = Math.min(1200, window.innerWidth * 0.9), height = 400, margin = {top: 20, right: 30, bottom: 60, left: 50};
                 const svg = d3.select(`#${containerId}`).append("svg")
                     .attr("width", width)
                     .attr("height", height);
@@ -206,7 +206,6 @@
                 const x = d3.scaleBand().range([margin.left, width - margin.right]);
                 const y = d3.scaleLinear().range([height - margin.bottom, margin.top]);
 
-                
                 svg.append("g").attr("class", "y-axis").attr("transform", `translate(${margin.left},0)`);
                 svg.append("text")
                     .attr("class", "y-axis-label")
@@ -228,12 +227,11 @@
                     const minValue = d3.min(filteredData, d => d[lifespanType]);
                     y.domain([Math.min(0, minValue), d3.max(filteredData, d => d[lifespanType])]);
 
-                    
-
                     svg.select(".y-axis").transition().call(d3.axisLeft(y));
 
                     const bars = svg.selectAll(".bar").data(filteredData, d => d.id);
 
+                    // Enter and update bars
                     bars.enter().append("rect")
                         .attr("class", "bar")
                         .attr("x", d => x(d.id))
@@ -271,6 +269,27 @@
                         .attr("width", x.bandwidth());
 
                     bars.exit().remove();
+
+                    // Add labels to the bars
+                    const labels = svg.selectAll(".bar-label").data(filteredData, d => d.id);
+
+                    labels.enter().append("text")
+                        .attr("class", "bar-label")
+                        .attr("x", d => x(d.id) + x.bandwidth() / 2)
+                        .attr("y", d => y(Math.max(0, d[lifespanType])) - 5)
+                        .attr("transform", d => `rotate(-45, ${x(d.id) + x.bandwidth() / 2}, ${y(Math.max(0, d[lifespanType])) - 5})`)
+                        .attr("text-anchor", "end")
+                        .attr("fill", "#e0e0e0")
+                        .attr("font-size", "10px")
+                        .text(d => d.Name)
+                        .merge(labels)
+                        .transition()
+                        .attr("x", d => x(d.id) + x.bandwidth() / 2)
+                        .attr("y", d => y(Math.max(0, d[lifespanType])) - 5)
+                        .attr("transform", d => `rotate(-45, ${x(d.id) + x.bandwidth() / 2}, ${y(Math.max(0, d[lifespanType])) - 5})`)
+                        .text(d => d.Name);
+
+                    labels.exit().remove();
                 }
 
                 return updateChart;
