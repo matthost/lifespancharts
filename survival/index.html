@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Survival Chart Comparison</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js"></script>
+</head>
+<body>
+    <h1>Survival Chart Comparison</h1>
+    <label for="groupSelect">Select Group to Compare with Control:</label>
+    <select id="groupSelect"></select>
+    <canvas id="survivalChart" width="800" height="400"></canvas>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const csvFiles = ["itp_data/ITP_C2004_Lifespan.csv", "itp_data/ITP_C2005_Lifespan.csv", "itp_data/ITP_C2006_Lifespan.csv", "itp_data/ITP_C2007_Lifespan.csv", "itp_data/ITP_C2009_Lifespan.csv", "itp_data/ITP_C2010_Lifespan.csv", "itp_data/ITP_C2011_Lifespan.csv", "itp_data/ITP_C2012_Lifespan.csv", "itp_data/ITP_C2013_Lifespan.csv", "itp_data/ITP_C2014_Lifespan.csv", "itp_data/ITP_C2015_Lifespan.csv", "itp_data/ITP_C2016_Lifespan.csv", "itp_data/ITP_C2017_Lifespan.csv", "itp_data/ITP_C2018_Lifespan.csv", "itp_data/ITP_C2019_Lifespan.csv", "itp_data/ITP_C2020_Lifespan.csv"];
+            const controlGroup = "Control";
+            let parsedData = [];
+
+            // Load all CSVs and parse them
+            Promise.all(csvFiles.map(file => fetch(file).then(response => response.text())))
+                .then(csvTexts => {
+                    csvTexts.forEach(csvText => {
+                        Papa.parse(csvText, {
+                            header: true,
+                            skipEmptyLines: true,
+                            complete: function (results) {
+                                parsedData = parsedData.concat(results.data);
+                            }
+                        });
+                    });
+                })
+                .then(() => {
+                    // Populate dropdown
+                    const groupSelect = document.getElementById('groupSelect');
+                    const uniqueGroups = [...new Set(parsedData.map(d => d.group).filter(group => group !== controlGroup))];
+                    uniqueGroups.forEach(group => {
+                        const option = document.createElement('option');
+                        option.value = group;
+                        option.textContent = group;
+                        groupSelect.appendChild(option);
+                    });
+
+                    // Add event listener to update chart
+                    groupSelect.addEventListener('change', () => {
+                        const selectedGroup = groupSelect.value;
+                        updateChart(selectedGroup);
+                    });
+
+                    // Draw initial chart with the first group
+                    if (uniqueGroups.length > 0) {
+                        updateChart(uniqueGroups[0]);
+                    }
+                });
+
+            function updateChart(group) {
+                // Filter data by group, sex, Rx(ppm), and age_initiation(mo)
+                const filterData = (group, sex) => {
+                    return parsedData.filter(d => d.group === group && d.sex === sex);
+                };
+                const filterControlData = (sex) => {
+                    return parsedData.filter(d => d.group === controlGroup && d.sex === sex);
+                };
+
+                const controlDataMale = filterControlData('m');
+                const controlDataFemale = filterControlData('f');
+                const selectedGroupDataMale = filterData(group, 'm');
+                const selectedGroupDataFemale = filterData(group, 'f');
+
+                // Get survival percentage over time
+                const calculateSurvival = (data) => {
+                    const total = data.length;
+                    const ages = data.map(d => parseInt(d['age(days)'])).sort((a, b) => a - b);
+                    let survival = total;
+                    let survivalPoints = [{ x: 0, y: 100 }];
+
+                    ages.forEach(age => {
+                        survival -= 1;
+                        survivalPoints.push({ x: age, y: (survival / total) * 100 });
+                    });
+
+                    return survivalPoints;
+                };
+
+                const controlSurvivalMale = calculateSurvival(controlDataMale);
+                const controlSurvivalFemale = calculateSurvival(controlDataFemale);
+                const groupSurvivalMale = calculateSurvival(selectedGroupDataMale);
+                const groupSurvivalFemale = calculateSurvival(selectedGroupDataFemale);
+
+                // Update chart
+                const ctx = document.getElementById('survivalChart').getContext('2d');
+                if (window.survivalChartInstance) {
+                    window.survivalChartInstance.destroy();
+                }
+                window.survivalChartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        datasets: [
+                            {
+                                label: 'Control Male',
+                                data: controlSurvivalMale,
+                                borderColor: 'blue',
+                                fill: false
+                            },
+                            {
+                                label: 'Control Female',
+                                data: controlSurvivalFemale,
+                                borderColor: 'lightblue',
+                                fill: false
+                            },
+                            {
+                                label: `${group} Male`,
+                                data: groupSurvivalMale,
+                                borderColor: 'red',
+                                fill: false
+                            },
+                            {
+                                label: `${group} Female`,
+                                data: groupSurvivalFemale,
+                                borderColor: 'pink',
+                                fill: false
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            x: {
+                                type: 'linear',
+                                title: {
+                                    display: true,
+                                    text: 'Days'
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: '% Survival'
+                                },
+                                min: 0,
+                                max: 100
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
