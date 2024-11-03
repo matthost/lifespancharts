@@ -5,13 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Survival Chart Comparison</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js"></script>
-    <script src="https://d3js.org/d3.v7.min.js">document.addEventListener('click', function(event) {
-            if (!event.target.closest('.bar') && !event.target.closest('.tooltip')) {
-                d3.select('#tooltip').style('visibility', 'hidden');
-            }
-        });
-    </script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 <body>
     <h1>Survival Chart Comparison</h1>
@@ -21,21 +15,22 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const csvFiles = ["itp_data/ITP_C2004_Lifespan.csv", "itp_data/ITP_C2005_Lifespan.csv", "itp_data/ITP_C2006_Lifespan.csv", "itp_data/ITP_C2007_Lifespan.csv", "itp_data/ITP_C2009_Lifespan.csv", "itp_data/ITP_C2010_Lifespan.csv", "itp_data/ITP_C2011_Lifespan.csv", "itp_data/ITP_C2012_Lifespan.csv", "itp_data/ITP_C2013_Lifespan.csv", "itp_data/ITP_C2014_Lifespan.csv", "itp_data/ITP_C2015_Lifespan.csv", "itp_data/ITP_C2016_Lifespan.csv", "itp_data/ITP_C2017_Lifespan.csv", "itp_data/ITP_C2018_Lifespan.csv", "itp_data/ITP_C2019_Lifespan.csv", "itp_data/ITP_C2020_Lifespan.csv"];
+            const csvFiles = [
+                "itp_data/ITP_C2004_Lifespan.csv", "itp_data/ITP_C2005_Lifespan.csv", "itp_data/ITP_C2006_Lifespan.csv", 
+                "itp_data/ITP_C2007_Lifespan.csv", "itp_data/ITP_C2009_Lifespan.csv", "itp_data/ITP_C2010_Lifespan.csv", 
+                "itp_data/ITP_C2011_Lifespan.csv", "itp_data/ITP_C2012_Lifespan.csv", "itp_data/ITP_C2013_Lifespan.csv", 
+                "itp_data/ITP_C2014_Lifespan.csv", "itp_data/ITP_C2015_Lifespan.csv", "itp_data/ITP_C2016_Lifespan.csv", 
+                "itp_data/ITP_C2017_Lifespan.csv", "itp_data/ITP_C2018_Lifespan.csv", "itp_data/ITP_C2019_Lifespan.csv", 
+                "itp_data/ITP_C2020_Lifespan.csv"
+            ];
             const controlGroup = "Control";
             let parsedData = [];
 
             // Load all CSVs and parse them
-            Promise.all(csvFiles.map(file => d3.text(`../${file}`)))
-                .then(csvTexts => {
-                    csvTexts.forEach(csvText => {
-                        Papa.parse(csvText, {
-                            header: true,
-                            skipEmptyLines: true,
-                            complete: function (results) {
-                                parsedData = parsedData.concat(results.data);
-                            }
-                        });
+            Promise.all(csvFiles.map(file => d3.csv(`../${file}`)))
+                .then(csvDataArray => {
+                    csvDataArray.forEach(csvData => {
+                        parsedData = parsedData.concat(csvData);
                     });
                 })
                 .then(() => {
