@@ -6,6 +6,12 @@
     <title>Survival Chart Comparison</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js">document.addEventListener('click', function(event) {
+            if (!event.target.closest('.bar') && !event.target.closest('.tooltip')) {
+                d3.select('#tooltip').style('visibility', 'hidden');
+            }
+        });
+    </script>
 </head>
 <body>
     <h1>Survival Chart Comparison</h1>
@@ -20,7 +26,7 @@
             let parsedData = [];
 
             // Load all CSVs and parse them
-            Promise.all(csvFiles.map(file => fetch(file).then(response => response.text())))
+            Promise.all(csvFiles.map(file => d3.text(`../${file}`)))
                 .then(csvTexts => {
                     csvTexts.forEach(csvText => {
                         Papa.parse(csvText, {
