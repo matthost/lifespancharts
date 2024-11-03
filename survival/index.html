@@ -59,10 +59,10 @@
             function updateChart(group) {
                 // Filter data by group, sex, Rx(ppm), and age_initiation(mo)
                 const filterData = (group, sex) => {
-                    return parsedData.filter(d => d.group === group && d.sex === sex);
+                    return parsedData.filter(d => d.group === group && d.sex === sex && !isNaN(parseInt(d['age(days)'])));
                 };
                 const filterControlData = (sex) => {
-                    return parsedData.filter(d => d.group === controlGroup && d.sex === sex);
+                    return parsedData.filter(d => d.group === controlGroup && d.sex === sex && !isNaN(parseInt(d['age(days)'])));
                 };
 
                 const controlDataMale = filterControlData('m');
@@ -73,7 +73,7 @@
                 // Get survival percentage over time
                 const calculateSurvival = (data) => {
                     const total = data.length;
-                    const ages = data.map(d => parseInt(d['age(days)'])).sort((a, b) => a - b);
+                    const ages = data.map(d => parseInt(d['age(days)'])).filter(age => !isNaN(age)).sort((a, b) => a - b);
                     let survival = total;
                     let survivalPoints = [{ x: 0, y: 100 }];
 
@@ -103,25 +103,33 @@
                                 label: 'Control Male',
                                 data: controlSurvivalMale,
                                 borderColor: 'blue',
-                                fill: false
+                                fill: false,
+                                pointRadius: 0,
+                                tension: 0
                             },
                             {
                                 label: 'Control Female',
                                 data: controlSurvivalFemale,
                                 borderColor: 'lightblue',
-                                fill: false
+                                fill: false,
+                                pointRadius: 0,
+                                tension: 0
                             },
                             {
                                 label: `${group} Male`,
                                 data: groupSurvivalMale,
                                 borderColor: 'red',
-                                fill: false
+                                fill: false,
+                                pointRadius: 0,
+                                tension: 0
                             },
                             {
                                 label: `${group} Female`,
                                 data: groupSurvivalFemale,
                                 borderColor: 'pink',
-                                fill: false
+                                fill: false,
+                                pointRadius: 0,
+                                tension: 0
                             }
                         ]
                     },
