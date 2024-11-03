@@ -71,19 +71,31 @@
                 const selectedGroupDataFemale = filterData(group, 'f');
 
                 // Get survival percentage over time
-                const calculateSurvival = (data) => {
-                    const total = data.length;
-                    const ages = data.map(d => parseInt(d['age(days)'])).filter(age => !isNaN(age)).sort((a, b) => a - b);
-                    let survival = total;
-                    let survivalPoints = [{ x: 0, y: 100 }];
+                function calculateSurvival(data) {
+                    // Group deaths by age
+                    const deathsByAge = new Map();
+                    const ages = data.map(d => parseInt(d['age(days)'])).filter(age => !isNaN(age));
 
                     ages.forEach(age => {
-                        survival -= 1;
-                        survivalPoints.push({ x: age, y: (survival / total) * 100 });
+                        deathsByAge.set(age, (deathsByAge.get(age) || 0) + 1);
+                    });
+
+                    // Sort ages for sequential processing
+                    const uniqueAges = Array.from(deathsByAge.keys()).sort((a, b) => a - b);
+                    
+                    const total = data.length;
+                    let remaining = total;
+                    let survivalPoints = [{ x: 0, y: 100 }];
+
+                    // Process each age where deaths occur
+                    uniqueAges.forEach(age => {
+                        const deaths = deathsByAge.get(age);
+                        remaining -= deaths;
+                        survivalPoints.push({ x: age, y: (remaining / total) * 100 });
                     });
 
                     return survivalPoints;
-                };
+                }
 
                 const controlSurvivalMale = calculateSurvival(controlDataMale);
                 const controlSurvivalFemale = calculateSurvival(controlDataFemale);
@@ -105,6 +117,7 @@
                                 borderColor: 'blue',
                                 fill: false,
                                 pointRadius: 0,
+                                stepped: true,
                                 tension: 0
                             },
                             {
@@ -113,6 +126,7 @@
                                 borderColor: 'lightblue',
                                 fill: false,
                                 pointRadius: 0,
+                                stepped: true,
                                 tension: 0
                             },
                             {
@@ -121,6 +135,7 @@
                                 borderColor: 'red',
                                 fill: false,
                                 pointRadius: 0,
+                                stepped: true,
                                 tension: 0
                             },
                             {
@@ -129,6 +144,7 @@
                                 borderColor: 'pink',
                                 fill: false,
                                 pointRadius: 0,
+                                stepped: true,
                                 tension: 0
                             }
                         ]
