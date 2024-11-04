@@ -65,7 +65,18 @@
             Promise.all(csvFiles.map(file => 
                 d3.csv(`../${file}`).then(data => ({file, data}))
             )).then(results => {
+                function inspectFileData(file, data) {
+                    console.log(`Loaded file: ${file}`);
+                    console.log('Number of rows:', data.length);
+                    if (data.length > 0) {
+                        console.log('Column headers:', Object.keys(data[0]));
+                        console.log('Sample row:', data[0]);
+                    } else {
+                        console.log('File contains no data rows');
+                    }
+                }
                 results.forEach(({file, data}) => {
+                    inspectFileData(file, data);
                     allData.set(file, data);
                     const year = file.match(/C(\d{4})/)[1];
                     
