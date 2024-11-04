@@ -54,7 +54,7 @@
                 uniqueGroups.forEach(group => {
                     const option = document.createElement('option');
                     option.value = group;
-                    option.textContent = `${group} (${groupToFile.get(group).split('/').pop().replace('_Lifespan.csv', '')})`;
+                    option.textContent = `${group} (${groupToFile.get(group).split('/').pop().replace('_Lifespan.csv', '').replace('ITP_C', '')})`;
                     groupSelect.appendChild(option);
                 });
 
