@@ -4,14 +4,40 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Survival Chart Comparison</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
+    <style>
+        .select2-container {
+            min-width: 200px;
+            margin-bottom: 10px;
+        }
+        .chart-container {
+            margin-top: 20px;
+        }
+        label {
+            display: inline-block;
+            margin-right: 10px;
+        }
+    </style>
 </head>
 <body>
     <h1>Survival Chart Comparison</h1>
     <label for="groupSelect">Select Group to Compare with Control:</label>
     <select id="groupSelect"></select>
-    <canvas id="survivalChart" width="800" height="400"></canvas>
+    <label for="genderSelect">Select Gender:</label>
+    <select id="genderSelect">
+        <option value="both">Both</option>
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+    </select>
+    <label for="compareGroups">Compare to:</label>
+    <select id="compareGroups" multiple="multiple"></select>
+    <div class="chart-container">
+        <canvas id="survivalChart" width="800" height="400"></canvas>
+    </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
@@ -27,6 +53,13 @@
             const controlGroup = "Control";
             let allData = new Map(); // Store data by file
             let groupToFile = new Map(); // Map groups to their source files
+            let groupToYear = new Map(); // Map groups to their years
+
+            // Initialize Select2
+            $('#compareGroups').select2({
+                placeholder: "Select groups to compare",
+                allowClear: true
+            });
 
             // Load all files and process data
             Promise.all(csvFiles.map(file => 
@@ -34,18 +67,27 @@
             )).then(results => {
                 results.forEach(({file, data}) => {
                     allData.set(file, data);
+                    const year = file.match(/C(\d{4})/)[1];
                     
-                    // Map each group to its source file
+                    // Map each group to its source file and year
                     data.forEach(row => {
                         if (row.group !== controlGroup) {
                             groupToFile.set(row.group, file);
+                            groupToYear.set(row.group, year);
                         }
                     });
                 });
 
                 // Populate group select with all unique groups
                 updateGroupSelect();
+                updateCompareGroups();
             });
+
+            function getGroupDisplayName(group) {
+                if (group === controlGroup) return group;
+                const year = groupToYear.get(group);
+                return `${group} (${year})`;
+            }
 
             function updateGroupSelect() {
                 const groupSelect = document.getElementById('groupSelect');
@@ -54,38 +96,67 @@
                 uniqueGroups.forEach(group => {
                     const option = document.createElement('option');
                     option.value = group;
-                    option.textContent = `${group} (${groupToFile.get(group).split('/').pop().replace('_Lifespan.csv', '').replace('ITP_C', '')})`;
+                    option.textContent = getGroupDisplayName(group);
                     groupSelect.appendChild(option);
                 });
 
                 // Draw initial chart with first group
                 if (uniqueGroups.length > 0) {
-                    updateChart(uniqueGroups[0]);
+                    updateChart(uniqueGroups[0], 'both');
                 }
             }
 
-            document.getElementById('groupSelect').addEventListener('change', () => {
-                const selectedGroup = document.getElementById('groupSelect').value;
+            function updateCompareGroups() {
+                const compareGroups = $('#compareGroups');
+                const uniqueGroups = [...groupToFile.keys()].sort();
+
+                uniqueGroups.forEach(group => {
+                    const option = new Option(getGroupDisplayName(group), group);
+                    compareGroups.append(option);
+                });
+
+                // Add event listener to update chart on selection change
+                compareGroups.on('change', () => {
+                    const selectedGroup = document.getElementById('groupSelect').value;
+                    const selectedGender = document.getElementById('genderSelect').value;
+                    if (selectedGroup) {
+                        updateChart(selectedGroup, selectedGender);
+                    }
+                });
+            }
+
+            $('#groupSelect').on('change', () => {
+                const selectedGroup = $('#groupSelect').val();
+                const selectedGender = $('#genderSelect').val();
                 if (selectedGroup) {
-                    updateChart(selectedGroup);
+                    updateChart(selectedGroup, selectedGender);
                 }
             });
 
-            function updateChart(group) {
+            $('#genderSelect').on('change', () => {
+                const selectedGroup = $('#groupSelect').val();
+                const selectedGender = $('#genderSelect').val();
+                if (selectedGroup) {
+                    updateChart(selectedGroup, selectedGender);
+                }
+            });
+
+            function updateChart(group, gender) {
                 // Get the file containing this group
                 const sourceFile = groupToFile.get(group);
+                const selectedYear = groupToYear.get(group);
                 const data = allData.get(sourceFile);
                 if (!data) return;
 
                 // Filter data by group, sex, and age
-                const filterData = (group, sex) => {
+                const filterData = (data, group, sex) => {
                     return data.filter(d => d.group === group && d.sex === sex && !isNaN(parseInt(d['age(days)'])));
                 };
 
-                const controlDataMale = filterData(controlGroup, 'm');
-                const controlDataFemale = filterData(controlGroup, 'f');
-                const selectedGroupDataMale = filterData(group, 'm');
-                const selectedGroupDataFemale = filterData(group, 'f');
+                const controlDataMale = filterData(data, controlGroup, 'm');
+                const controlDataFemale = filterData(data, controlGroup, 'f');
+                const selectedGroupDataMale = filterData(data, group, 'm');
+                const selectedGroupDataFemale = filterData(data, group, 'f');
 
                 // Calculate survival percentage over time
                 function calculateSurvival(data) {
@@ -115,55 +186,130 @@
                 const groupSurvivalMale = calculateSurvival(selectedGroupDataMale);
                 const groupSurvivalFemale = calculateSurvival(selectedGroupDataFemale);
 
-                // Update chart
+                const compareGroups = $('#compareGroups').val() || [];
+                const datasets = [];
+
+                if (gender === 'both' || gender === 'male') {
+                    datasets.push(
+                        {
+                            label: `Control Male (${selectedYear})`,
+                            data: controlSurvivalMale,
+                            borderColor: 'lightblue',
+                            fill: false,
+                            pointRadius: 0,
+                            stepped: true,
+                            tension: 0
+                        },
+                        {
+                            label: `${getGroupDisplayName(group)} Male`,
+                            data: groupSurvivalMale,
+                            borderColor: 'blue',
+                            fill: false,
+                            pointRadius: 0,
+                            stepped: true,
+                            tension: 0
+                        }
+                    );
+                }
+                if (gender === 'both' || gender === 'female') {
+                    datasets.push(
+                        {
+                            label: `Control Female (${selectedYear})`,
+                            data: controlSurvivalFemale,
+                            borderColor: 'pink',
+                            fill: false,
+                            pointRadius: 0,
+                            stepped: true,
+                            tension: 0
+                        },
+                        {
+                            label: `${getGroupDisplayName(group)} Female`,
+                            data: groupSurvivalFemale,
+                            borderColor: 'red',
+                            fill: false,
+                            pointRadius: 0,
+                            stepped: true,
+                            tension: 0
+                        }
+                    );
+                }
+
+                compareGroups.forEach(compareGroup => {
+                    const compareSourceFile = groupToFile.get(compareGroup);
+                    const compareYear = groupToYear.get(compareGroup);
+                    const compareData = allData.get(compareSourceFile);
+                    
+                    if (compareData) {
+                        // Add control group for the comparison year if it's different from the main group's year
+                        if (compareYear !== selectedYear) {
+                            const compareControlDataMale = filterData(compareData, controlGroup, 'm');
+                            const compareControlDataFemale = filterData(compareData, controlGroup, 'f');
+                            const compareControlSurvivalMale = calculateSurvival(compareControlDataMale);
+                            const compareControlSurvivalFemale = calculateSurvival(compareControlDataFemale);
+
+                            if (gender === 'both' || gender === 'male') {
+                                datasets.push({
+                                    label: `Control Male (${compareYear})`,
+                                    data: compareControlSurvivalMale,
+                                    borderColor: 'lightgray',
+                                    fill: false,
+                                    pointRadius: 0,
+                                    stepped: true,
+                                    tension: 0
+                                });
+                            }
+                            if (gender === 'both' || gender === 'female') {
+                                datasets.push({
+                                    label: `Control Female (${compareYear})`,
+                                    data: compareControlSurvivalFemale,
+                                    borderColor: 'gray',
+                                    fill: false,
+                                    pointRadius: 0,
+                                    stepped: true,
+                                    tension: 0
+                                });
+                            }
+                        }
+
+                        const compareGroupDataMale = filterData(compareData, compareGroup, 'm');
+                        const compareGroupDataFemale = filterData(compareData, compareGroup, 'f');
+                        const compareSurvivalMale = calculateSurvival(compareGroupDataMale);
+                        const compareSurvivalFemale = calculateSurvival(compareGroupDataFemale);
+
+                        if (gender === 'both' || gender === 'male') {
+                            datasets.push({
+                                label: `${getGroupDisplayName(compareGroup)} Male`,
+                                data: compareSurvivalMale,
+                                borderColor: getRandomColor(),
+                                fill: false,
+                                pointRadius: 0,
+                                stepped: true,
+                                tension: 0
+                            });
+                        }
+                        if (gender === 'both' || gender === 'female') {
+                            datasets.push({
+                                label: `${getGroupDisplayName(compareGroup)} Female`,
+                                data: compareSurvivalFemale,
+                                borderColor: getRandomColor(),
+                                fill: false,
+                                pointRadius: 0,
+                                stepped: true,
+                                tension: 0
+                            });
+                        }
+                    }
+                });
+                
                 const ctx = document.getElementById('survivalChart').getContext('2d');
                 if (window.survivalChartInstance) {
                     window.survivalChartInstance.destroy();
                 }
                 
-                const studyYear = sourceFile.split('/').pop().replace('_Lifespan.csv', '');
-                
                 window.survivalChartInstance = new Chart(ctx, {
                     type: 'line',
                     data: {
-                        datasets: [
-                            {
-                                label: `Control Male (${studyYear})`,
-                                data: controlSurvivalMale,
-                                borderColor: 'lightblue',
-                                fill: false,
-                                pointRadius: 0,
-                                stepped: true,
-                                tension: 0
-                            },
-                            {
-                                label: `Control Female (${studyYear})`,
-                                data: controlSurvivalFemale,
-                                borderColor: 'pink',
-                                fill: false,
-                                pointRadius: 0,
-                                stepped: true,
-                                tension: 0
-                            },
-                            {
-                                label: `${group} Male`,
-                                data: groupSurvivalMale,
-                                borderColor: 'blue',
-                                fill: false,
-                                pointRadius: 0,
-                                stepped: true,
-                                tension: 0
-                            },
-                            {
-                                label: `${group} Female`,
-                                data: groupSurvivalFemale,
-                                borderColor: 'red',
-                                fill: false,
-                                pointRadius: 0,
-                                stepped: true,
-                                tension: 0
-                            }
-                        ]
+                        datasets: datasets
                     },
                     options: {
                         responsive: true,
@@ -187,11 +333,26 @@
                         plugins: {
                             title: {
                                 display: true,
-                                text: `${group} vs Control (${studyYear})`
+                                text: `${getGroupDisplayName(group)} vs Control and Comparisons`
+                            },
+                            legend: {
+                                labels: {
+                                    usePointStyle: true,
+                                    pointStyle: 'line'
+                                }
                             }
                         }
                     }
                 });
+            }
+
+            function getRandomColor() {
+                const letters = '0123456789ABCDEF';
+                let color = '#';
+                for (let i = 0; i < 6; i++) {
+                    color += letters[Math.floor(Math.random() * 16)];
+                }
+                return color;
             }
         });
     </script>
