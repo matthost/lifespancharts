@@ -23,56 +23,72 @@
                 "itp_data/ITP_C2017_Lifespan.csv", "itp_data/ITP_C2018_Lifespan.csv", "itp_data/ITP_C2019_Lifespan.csv", 
                 "itp_data/ITP_C2020_Lifespan.csv"
             ];
+            
             const controlGroup = "Control";
-            let parsedData = [];
+            let allData = new Map(); // Store data by file
+            let groupToFile = new Map(); // Map groups to their source files
 
-            // Load all CSVs and parse them
-            Promise.all(csvFiles.map(file => d3.csv(`../${file}`)))
-                .then(csvDataArray => {
-                    csvDataArray.forEach(csvData => {
-                        parsedData = parsedData.concat(csvData);
+            // Load all files and process data
+            Promise.all(csvFiles.map(file => 
+                d3.csv(`../${file}`).then(data => ({file, data}))
+            )).then(results => {
+                results.forEach(({file, data}) => {
+                    allData.set(file, data);
+                    
+                    // Map each group to its source file
+                    data.forEach(row => {
+                        if (row.group !== controlGroup) {
+                            groupToFile.set(row.group, file);
+                        }
                     });
-                })
-                .then(() => {
-                    // Populate dropdown
-                    const groupSelect = document.getElementById('groupSelect');
-                    const uniqueGroups = [...new Set(parsedData.map(d => d.group).filter(group => group !== controlGroup))];
-                    uniqueGroups.forEach(group => {
-                        const option = document.createElement('option');
-                        option.value = group;
-                        option.textContent = group;
-                        groupSelect.appendChild(option);
-                    });
-
-                    // Add event listener to update chart
-                    groupSelect.addEventListener('change', () => {
-                        const selectedGroup = groupSelect.value;
-                        updateChart(selectedGroup);
-                    });
-
-                    // Draw initial chart with the first group
-                    if (uniqueGroups.length > 0) {
-                        updateChart(uniqueGroups[0]);
-                    }
                 });
 
+                // Populate group select with all unique groups
+                updateGroupSelect();
+            });
+
+            function updateGroupSelect() {
+                const groupSelect = document.getElementById('groupSelect');
+                const uniqueGroups = [...groupToFile.keys()].sort();
+                
+                uniqueGroups.forEach(group => {
+                    const option = document.createElement('option');
+                    option.value = group;
+                    option.textContent = `${group} (${groupToFile.get(group).split('/').pop().replace('_Lifespan.csv', '')})`;
+                    groupSelect.appendChild(option);
+                });
+
+                // Draw initial chart with first group
+                if (uniqueGroups.length > 0) {
+                    updateChart(uniqueGroups[0]);
+                }
+            }
+
+            document.getElementById('groupSelect').addEventListener('change', () => {
+                const selectedGroup = document.getElementById('groupSelect').value;
+                if (selectedGroup) {
+                    updateChart(selectedGroup);
+                }
+            });
+
             function updateChart(group) {
-                // Filter data by group, sex, Rx(ppm), and age_initiation(mo)
+                // Get the file containing this group
+                const sourceFile = groupToFile.get(group);
+                const data = allData.get(sourceFile);
+                if (!data) return;
+
+                // Filter data by group, sex, and age
                 const filterData = (group, sex) => {
-                    return parsedData.filter(d => d.group === group && d.sex === sex && !isNaN(parseInt(d['age(days)'])));
-                };
-                const filterControlData = (sex) => {
-                    return parsedData.filter(d => d.group === controlGroup && d.sex === sex && !isNaN(parseInt(d['age(days)'])));
+                    return data.filter(d => d.group === group && d.sex === sex && !isNaN(parseInt(d['age(days)'])));
                 };
 
-                const controlDataMale = filterControlData('m');
-                const controlDataFemale = filterControlData('f');
+                const controlDataMale = filterData(controlGroup, 'm');
+                const controlDataFemale = filterData(controlGroup, 'f');
                 const selectedGroupDataMale = filterData(group, 'm');
                 const selectedGroupDataFemale = filterData(group, 'f');
 
-                // Get survival percentage over time
+                // Calculate survival percentage over time
                 function calculateSurvival(data) {
-                    // Group deaths by age
                     const deathsByAge = new Map();
                     const ages = data.map(d => parseInt(d['age(days)'])).filter(age => !isNaN(age));
 
@@ -80,14 +96,11 @@
                         deathsByAge.set(age, (deathsByAge.get(age) || 0) + 1);
                     });
 
-                    // Sort ages for sequential processing
                     const uniqueAges = Array.from(deathsByAge.keys()).sort((a, b) => a - b);
-                    
                     const total = data.length;
                     let remaining = total;
                     let survivalPoints = [{ x: 0, y: 100 }];
 
-                    // Process each age where deaths occur
                     uniqueAges.forEach(age => {
                         const deaths = deathsByAge.get(age);
                         remaining -= deaths;
@@ -107,12 +120,15 @@
                 if (window.survivalChartInstance) {
                     window.survivalChartInstance.destroy();
                 }
+                
+                const studyYear = sourceFile.split('/').pop().replace('_Lifespan.csv', '');
+                
                 window.survivalChartInstance = new Chart(ctx, {
                     type: 'line',
                     data: {
                         datasets: [
                             {
-                                label: 'Control Male',
+                                label: `Control Male (${studyYear})`,
                                 data: controlSurvivalMale,
                                 borderColor: 'lightblue',
                                 fill: false,
@@ -121,7 +137,7 @@
                                 tension: 0
                             },
                             {
-                                label: 'Control Female',
+                                label: `Control Female (${studyYear})`,
                                 data: controlSurvivalFemale,
                                 borderColor: 'pink',
                                 fill: false,
@@ -166,6 +182,12 @@
                                 },
                                 min: 0,
                                 max: 100
+                            }
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `${group} vs Control (${studyYear})`
                             }
                         }
                     }
